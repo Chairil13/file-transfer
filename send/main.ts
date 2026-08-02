@@ -1,16 +1,5 @@
-// Sender: turn a file into an endless fountain-coded QR stream.
-//
-// Tuning notes from the experiments this PoC is distilled from:
-// - Frame payload sets the QR version; denser wins on goodput as long as the
-//   receiver can still decode it. 1465 bytes ≈ V27 is a safe middle ground
-//   for arbitrary monitors; 2953 (V40) is the ceiling and works phone-to-
-//   phone at close range.
-// - The mask pattern is pinned (any declared mask is valid to a decoder);
-//   this skips the spec's 8-way mask evaluation and speeds generation ~4×.
-// - Displays need each frame shown for ≥2 refresh cycles or captures catch
-//   the transition; 24 fps on a 60 Hz screen is comfortable.
-// - Error correction stays at L by default: the fountain layer already
-//   handles erasures, and a frame is either decoded whole or discarded.
+// Sender: turn a file into an endless chunked fountain-coded QR stream.
+// Supports arbitrarily large files (e.g. 50MB+) with chunked LT coding.
 
 import QRCode from "qrcode";
 import { LTEncoder } from "../shared/fountain";
@@ -18,6 +7,7 @@ import { HEADER_LEN, fnv1a, packFrame, type FrameHeader } from "../shared/protoc
 
 const MARGIN = 4; // quiet-zone modules
 const LOOKAHEAD = 3;
+const CHUNK_SIZE = 256 * 1024; // 256 KB per chunk for lightning-fast JS fountain decoding
 
 const canvas = document.getElementById("qr") as HTMLCanvasElement;
 const specs = document.getElementById("specs")!;
@@ -84,22 +74,26 @@ async function startStream() {
 
   const sessionId = (Math.floor(Math.random() * 0xffff) + 1) & 0xffff;
   const blockLen = frameBytes - HEADER_LEN;
-  const encoder = new LTEncoder(payload, blockLen, sessionId);
-  const header: FrameHeader = {
-    sessionId,
-    seq: 0,
-    k: encoder.k,
-    blockLen,
-    totalLen: payload.length,
-    payloadFnv: fnv1a(payload),
-  };
+  const fullFnv = fnv1a(payload);
+  const totalChunks = Math.max(1, Math.ceil(payload.length / CHUNK_SIZE));
+
+  const chunkEncoders: LTEncoder[] = [];
+  const chunkNextSeq: number[] = new Array(totalChunks).fill(0);
+
+  for (let c = 0; c < totalChunks; c++) {
+    const chunkBytes = payload.subarray(c * CHUNK_SIZE, Math.min((c + 1) * CHUNK_SIZE, payload.length));
+    chunkEncoders.push(new LTEncoder(chunkBytes, blockLen, (sessionId + c * 997) & 0xffff));
+  }
+
+  let currentChunkIdx = 0;
+  let chunkFramesEmitted = 0;
+  const framesPerBatch = (c: number) => Math.max(30, Math.ceil(chunkEncoders[c]!.k * 1.25));
 
   let version: number | undefined; // locked after the first frame
   let modules = 0;
   let scale = 1;
   const staging = document.createElement("canvas");
   const queue: ImageData[] = [];
-  let nextSeq = 0;
 
   const sizeCanvas = () => {
     const dpr = window.devicePixelRatio || 1;
@@ -115,21 +109,43 @@ async function startStream() {
   };
 
   const makeFrame = (): ImageData => {
-    const bytes = packFrame({ ...header, seq: nextSeq }, encoder.encode(nextSeq));
-    nextSeq++;
+    const enc = chunkEncoders[currentChunkIdx]!;
+    const seq = chunkNextSeq[currentChunkIdx]!++;
+    const header: FrameHeader = {
+      sessionId,
+      seq,
+      k: enc.k,
+      blockLen,
+      totalLen: payload.length,
+      payloadFnv: fullFnv,
+      chunkIdx: currentChunkIdx,
+      totalChunks,
+    };
+
+    const bytes = packFrame(header, enc.encode(seq));
+
+    chunkFramesEmitted++;
+    if (chunkFramesEmitted >= framesPerBatch(currentChunkIdx)) {
+      chunkFramesEmitted = 0;
+      currentChunkIdx = (currentChunkIdx + 1) % totalChunks;
+    }
+
     const qr = QRCode.create([{ data: bytes, mode: "byte" } as unknown as QRCode.QRCodeSegment], {
       errorCorrectionLevel: ecc,
       version,
       maskPattern: 4,
     });
+
     if (version === undefined) {
       version = qr.version;
       modules = qr.modules.size;
       sizeCanvas();
-      specs.textContent =
-        `${txFps} FPS · ${frameBytes} byte per frame · V${version} · ECC ${ecc} · ` +
-        `${payloadLabel} · K=${encoder.k}`;
     }
+
+    specs.textContent =
+      `${txFps} FPS · ${frameBytes} B/frame · V${version} · ECC ${ecc} · ` +
+      `${payloadLabel} · Chunk ${currentChunkIdx + 1}/${totalChunks}`;
+
     const size = qr.modules.size;
     const data = qr.modules.data;
     const total = size + 2 * MARGIN;
@@ -147,7 +163,7 @@ async function startStream() {
   };
 
   const pump = () => {
-    if (gen !== generation) return; // superseded by a settings change
+    if (gen !== generation) return;
     try {
       while (queue.length < LOOKAHEAD) queue.push(makeFrame());
     } catch (err) {
@@ -174,7 +190,7 @@ async function startStream() {
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(staging, 0, 0, canvas.width, canvas.height);
     nextAt += interval;
-    if (now - nextAt > 3 * interval) nextAt = now + interval; // fell behind — don't burst
+    if (now - nextAt > 3 * interval) nextAt = now + interval;
   };
   requestAnimationFrame(tick);
 }

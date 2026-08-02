@@ -1,17 +1,10 @@
-// Receiver: camera → WASM QR decode in workers → fountain decoder → file.
-//
-// Field lessons baked in:
-// - iOS treats `frameRate: {ideal: 60}` as a suggestion and delivers 30.
-//   Demand `exact` first (it works at 1280-wide), fall back to `ideal`.
-// - requestVideoFrameCallback chains survive a stopped stream and resume on
-//   the next one — a generation counter prevents zombie capture loops.
-// - Progress must track frames COLLECTED: LT peeling back-loads its solve
-//   cascade, so blocks-solved looks stalled and then teleports to done.
+// Receiver: camera → WASM QR decode in workers → chunked fountain decoder → file.
 
 import { LTDecoder } from "../shared/fountain";
 import { fnv1a, parseFrame } from "../shared/protocol";
 
 const OVERHEAD_EST = 1.18; // expected frames ≈ K × this (robust-soliton ε)
+const CHUNK_SIZE = 256 * 1024; // 256 KB per chunk
 
 const startBtn = document.getElementById("start") as HTMLButtonElement;
 const video = document.getElementById("video") as HTMLVideoElement;
@@ -25,11 +18,13 @@ const metricsEl = document.getElementById("metrics")!;
 const metric = (id: string) => document.getElementById(id)!;
 
 let stream: MediaStream | null = null;
-let decoder: LTDecoder | null = null;
-let sessionId = 0;
+let chunkDecoders: (LTDecoder | null)[] = [];
+let totalChunksCount = 0;
+let sessionId = -1;
 let startTs = 0;
 let captureGen = 0;
 let done = false;
+let completedChunksCount = 0;
 
 const workers: Worker[] = [];
 const busy: boolean[] = [];
@@ -40,8 +35,6 @@ startBtn.onclick = () => void start();
 
 async function start() {
   if (!navigator.mediaDevices?.getUserMedia) {
-    // On insecure origins the API doesn't exist AT ALL — this is the plain-
-    // http-over-LAN case. localhost is exempt; other hosts need https.
     stats.textContent =
       "✗ kamera membutuhkan konteks aman (HTTPS) — halaman ini harus dijalankan dengan HTTPS " +
       "untuk mengakses kamera dari perangkat lain (npm run dev).";
@@ -126,7 +119,7 @@ function captureFrame() {
   if (!vw || !vh) return;
   captureTimes.push(performance.now());
   const slot = busy.indexOf(false);
-  if (slot === -1) return; // all workers busy — drop the frame, no harm done
+  if (slot === -1) return; // all workers busy — drop the frame
   if (grab.width !== vw || grab.height !== vh) {
     grab.width = vw;
     grab.height = vh;
@@ -145,21 +138,69 @@ function onDecoded(bytes: Uint8Array) {
   const parsed = parseFrame(bytes);
   if (!parsed || done) return;
   const { header, block } = parsed;
-  if (!decoder || sessionId !== header.sessionId) {
-    decoder = new LTDecoder(header.k, header.blockLen, header.sessionId, header.totalLen);
+
+  if (sessionId !== header.sessionId || totalChunksCount !== header.totalChunks) {
     sessionId = header.sessionId;
+    totalChunksCount = header.totalChunks;
+    chunkDecoders = new Array(header.totalChunks).fill(null);
+    completedChunksCount = 0;
     startTs = performance.now();
     progressEl.style.display = "block";
   }
-  decoder.addFrame(header.seq, block);
-  const progress = Math.min(0.99, decoder.framesNew / (decoder.k * OVERHEAD_EST));
-  bar.style.width = `${(progress * 100).toFixed(1)}%`;
 
-  if (decoder.isComplete) {
-    const payload = decoder.assemble()!;
+  const cIdx = header.chunkIdx;
+  if (cIdx < 0 || cIdx >= totalChunksCount) return;
+
+  if (!chunkDecoders[cIdx]) {
+    const chunkSessionId = (header.sessionId + cIdx * 997) & 0xffff;
+    const isLastChunk = cIdx === totalChunksCount - 1;
+    const thisChunkTotalLen = isLastChunk
+      ? header.totalLen - (totalChunksCount - 1) * CHUNK_SIZE
+      : CHUNK_SIZE;
+    chunkDecoders[cIdx] = new LTDecoder(
+      header.k,
+      header.blockLen,
+      chunkSessionId,
+      thisChunkTotalLen
+    );
+  }
+
+  const dec = chunkDecoders[cIdx]!;
+  if (!dec.isComplete) {
+    dec.addFrame(header.seq, block);
+    if (dec.isComplete) {
+      completedChunksCount++;
+    }
+  }
+
+  // Calculate overall progress across all chunks
+  let totalProgress = 0;
+  for (let i = 0; i < totalChunksCount; i++) {
+    const d = chunkDecoders[i];
+    if (d) {
+      if (d.isComplete) {
+        totalProgress += 1;
+      } else {
+        totalProgress += Math.min(0.99, d.framesNew / (d.k * OVERHEAD_EST));
+      }
+    }
+  }
+
+  const overallFraction = totalProgress / totalChunksCount;
+  bar.style.width = `${(overallFraction * 100).toFixed(1)}%`;
+
+  if (completedChunksCount >= totalChunksCount) {
+    // All chunks resolved! Reassemble full payload
+    const assembledPayload = new Uint8Array(header.totalLen);
+    let offset = 0;
+    for (let i = 0; i < totalChunksCount; i++) {
+      const chunkBytes = chunkDecoders[i]!.assemble()!;
+      assembledPayload.set(chunkBytes, offset);
+      offset += chunkBytes.length;
+    }
     const seconds = (performance.now() - startTs) / 1000;
-    const ok = fnv1a(payload) === header.payloadFnv;
-    finish(payload, ok, seconds, header.totalLen);
+    const ok = fnv1a(assembledPayload) === header.payloadFnv;
+    finish(assembledPayload, ok, seconds, header.totalLen);
   }
 }
 
@@ -337,13 +378,33 @@ function updateStats() {
   prune(decodeTimes);
   metric("m-cap").textContent = (captureTimes.length / 2).toFixed(0);
   metric("m-dec").textContent = (decodeTimes.length / 2).toFixed(1);
-  if (!decoder) return;
+
+  if (chunkDecoders.length === 0) return;
+
+  let totalFramesNew = 0;
+  let totalFramesDup = 0;
+  let activeBlockLen = 0;
+  let totalFileLen = 0;
+  let firstK = 0;
+
+  for (const d of chunkDecoders) {
+    if (d) {
+      totalFramesNew += d.framesNew;
+      totalFramesDup += d.framesDup;
+      activeBlockLen = d.blockLen;
+      totalFileLen = d.totalLen;
+      if (!firstK) firstK = d.k;
+    }
+  }
+
   const elapsed = (now - startTs) / 1000;
-  const kbs = (decoder.framesNew * decoder.blockLen) / OVERHEAD_EST / 1024 / Math.max(0.1, elapsed);
+  const kbs = (totalFramesNew * activeBlockLen) / OVERHEAD_EST / 1024 / Math.max(0.1, elapsed);
   metric("m-rate").textContent = `${kbs.toFixed(1)} KB/s`;
   metric("m-time").textContent = `${elapsed.toFixed(0)} s`;
-  metric("m-frames").textContent = `${decoder.framesNew}/${decoder.framesDup}`;
-  metric("m-k").textContent = String(decoder.k);
-  metric("m-block").textContent = `${decoder.blockLen} B`;
-  metric("m-payload").textContent = `${Math.round(decoder.totalLen / 1024)} KB`;
+  metric("m-frames").textContent = `${totalFramesNew}/${totalFramesDup}`;
+  metric("m-k").textContent = `${firstK} (×${totalChunksCount})`;
+  metric("m-block").textContent = `${activeBlockLen} B`;
+  metric("m-payload").textContent = `${Math.round(totalFileLen / 1024)} KB`;
+
+  stats.textContent = `kamera — Chunk ${completedChunksCount}/${totalChunksCount} Selesai (${completedChunksCount === totalChunksCount ? "100" : Math.floor((completedChunksCount / totalChunksCount) * 100)}%)`;
 }
