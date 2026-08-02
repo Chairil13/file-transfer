@@ -1,11 +1,11 @@
 {
-  "name": "Decimen Optical Transfer",
-  "short_name": "Decimen",
+  "name": "File Transfer Optical",
+  "short_name": "File Transfer",
   "description": "Air-gapped offline file transfer using optical QR code streams",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#0d1117",
-  "theme_color": "#0d1117",
+  "background_color": "#07090e",
+  "theme_color": "#07090e",
   "orientation": "portrait",
   "icons": [
     {

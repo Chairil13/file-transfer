@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="id">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Optical Transfer — send</title>
-    <meta name="theme-color" content="#0d1117" />
+    <title>File Transfer — Mode Kirim</title>
+    <meta name="theme-color" content="#07090e" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="manifest" href="../manifest.json" />
@@ -19,69 +19,87 @@
     </script>
   </head>
   <body>
-    <h1>DECIMEN <small>— Fountain QR File Transfer</small></h1>
-    <div class="hint" id="specs">loading payload…</div>
-    <details class="settings">
-      <summary>Settings</summary>
-      <div class="row">
-        <label>
-          payload
-          <select id="cfg-payload">
-            <option value="../success.png" selected>512 KB image</option>
-            <option value="../success-2mb.png">2 MB image</option>
-            <option value="custom">Custom file…</option>
-          </select>
-        </label>
-        <label id="cfg-file-label" style="display: none">
-          choose file
-          <input type="file" id="cfg-file" />
-        </label>
-        <label>
-          tx fps
-          <select id="cfg-fps">
-            <option>10</option>
-            <option>15</option>
-            <option>20</option>
-            <option selected>24</option>
-            <option>30</option>
-            <option>60</option>
-          </select>
-        </label>
-        <label>
-          bytes / frame
-          <select id="cfg-bytes">
-            <option>500</option>
-            <option>1000</option>
-            <option selected>1465</option>
-            <option>1850</option>
-            <option>2331</option>
-            <option>2953</option>
-          </select>
-        </label>
-        <label>
-          error correction
-          <select id="cfg-ecc">
-            <option selected>L</option>
-            <option>M</option>
-            <option>Q</option>
-            <option>H</option>
-          </select>
-        </label>
-        <label>
-          display size
-          <input id="cfg-size" type="range" min="300" max="1200" step="50" value="900" />
-        </label>
+    <!-- Sticky Header Navigation -->
+    <header class="nav-header">
+      <a href="../" class="nav-brand">
+        <div class="brand-icon">FT</div>
+        <span class="brand-title">FILE TRANSFER</span>
+        <span class="brand-badge">Pengirim</span>
+      </a>
+      <nav class="nav-links">
+        <a href="../" class="nav-link">← Beranda</a>
+        <a href="./" class="nav-link active">📡 Kirim</a>
+        <a href="../receive/" class="nav-link">📷 Terima</a>
+      </nav>
+    </header>
+
+    <main class="app-container">
+      <div class="hero-section" style="padding: 0;">
+        <h1>
+          FILE TRANSFER <small>— Transmisi File QR Fountain</small>
+        </h1>
       </div>
-      <div class="hint" style="text-align: left; padding-top: 8px">
-        Changes restart the stream — the receiver resets automatically (new
-        session id in the frame headers; that's the fountain protocol's gift).
+
+      <div class="hint" id="specs">📁 Silakan pilih file yang ingin dikirim</div>
+
+      <details class="settings" open>
+        <summary>⚙️ Upload File & Pengaturan Transmisi</summary>
+        <div class="row">
+          <label id="cfg-file-label" style="display: flex">
+            pilih / upload file
+            <input type="file" id="cfg-file" />
+          </label>
+          <label>
+            fps transmisi
+            <select id="cfg-fps">
+              <option>10</option>
+              <option>15</option>
+              <option>20</option>
+              <option selected>24</option>
+              <option>30</option>
+              <option>60</option>
+            </select>
+          </label>
+          <label>
+            byte / frame
+            <select id="cfg-bytes">
+              <option>500</option>
+              <option>1000</option>
+              <option selected>1465</option>
+              <option>1850</option>
+              <option>2331</option>
+              <option>2953</option>
+            </select>
+          </label>
+          <label>
+            koreksi error
+            <select id="cfg-ecc">
+              <option selected>L</option>
+              <option>M</option>
+              <option>Q</option>
+              <option>H</option>
+            </select>
+          </label>
+          <label>
+            ukuran tampilan
+            <input id="cfg-size" type="range" min="300" max="1200" step="50" value="900" />
+          </label>
+        </div>
+        <div class="hint" style="text-align: left; padding-top: 10px; font-size: 12px; opacity: 0.8;">
+          💡 Pilih file Anda untuk mulai memancarkan stream kode QR secara langsung.
+        </div>
+      </details>
+
+      <div class="stage-wrapper">
+        <div class="stage">
+          <canvas id="qr" width="16" height="16"></canvas>
+        </div>
       </div>
-    </details>
-    <div class="stage"><canvas id="qr" width="16" height="16"></canvas></div>
-    <div class="hint">
-      Max screen brightness helps. The stream loops forever — stop when the
-      receiver says done.
-    </div>
+
+      <div class="hint hint-card">
+        💡 <strong>Tips:</strong> Kecerahan layar maksimum membantu deteksi kamera. Stream akan berulang secara terus-menerus — hentikan setelah penerima menampilkan pesan <strong>Transfer Selesai</strong>.
+      </div>
+    </main>
     <script type="module" src="./main.ts"></script>
   </body>
 </html>

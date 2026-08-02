@@ -43,8 +43,8 @@ async function start() {
     // On insecure origins the API doesn't exist AT ALL — this is the plain-
     // http-over-LAN case. localhost is exempt; other hosts need https.
     stats.textContent =
-      "✗ camera needs a secure context — this page must be served over " +
-      "https to use the camera from another device (npm run dev:https).";
+      "✗ kamera membutuhkan konteks aman (HTTPS) — halaman ini harus dijalankan dengan HTTPS " +
+      "untuk mengakses kamera dari perangkat lain (npm run dev).";
     return;
   }
   const captureWidth = Number((document.getElementById("cfg-width") as HTMLSelectElement).value);
@@ -72,12 +72,12 @@ async function start() {
       });
     }
   } catch (err) {
-    stats.textContent = `✗ camera: ${err instanceof Error ? err.message : String(err)}`;
+    stats.textContent = `✗ kamera: ${err instanceof Error ? err.message : String(err)}`;
     return;
   }
   video.srcObject = stream;
   await video.play().catch(() => undefined);
-  stats.textContent = `camera ${stream.getVideoTracks()[0]?.getSettings().width}×${stream.getVideoTracks()[0]?.getSettings().height}@${stream.getVideoTracks()[0]?.getSettings().frameRate} — searching for a stream…`;
+  stats.textContent = `kamera ${stream.getVideoTracks()[0]?.getSettings().width}×${stream.getVideoTracks()[0]?.getSettings().height}@${stream.getVideoTracks()[0]?.getSettings().frameRate} — mencari stream QR…`;
 
   for (let i = 0; i < workerCount; i++) {
     const w = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
@@ -279,13 +279,13 @@ function finish(payload: Uint8Array, hashOk: boolean, seconds: number, totalLen:
   bar.style.width = "100%";
   const kb = Math.round(totalLen / 1024);
   const rate = (totalLen / 1024 / seconds).toFixed(1);
-  stats.textContent = `${kb} KB in ${seconds.toFixed(1)} s · ${rate} KB/s · hash ${hashOk ? "verified ✓" : "MISMATCH ✗"}`;
+  stats.textContent = `${kb} KB dalam ${seconds.toFixed(1)} d · ${rate} KB/s · hash ${hashOk ? "terverifikasi ✓" : "TIDAK COCOK ✗"}`;
 
   const { ext, mime } = detectFileType(payload);
 
   const heading = document.createElement("div");
   heading.className = "done";
-  heading.textContent = "Transfer Complete!";
+  heading.textContent = "Transfer Selesai!";
 
   const blobUrl = URL.createObjectURL(new Blob([payload as BlobPart], { type: mime }));
 

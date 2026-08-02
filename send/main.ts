@@ -21,7 +21,6 @@ const LOOKAHEAD = 3;
 
 const canvas = document.getElementById("qr") as HTMLCanvasElement;
 const specs = document.getElementById("specs")!;
-const cfgPayload = document.getElementById("cfg-payload") as HTMLSelectElement;
 const cfgFileLabel = document.getElementById("cfg-file-label") as HTMLLabelElement;
 const cfgFile = document.getElementById("cfg-file") as HTMLInputElement;
 const cfgFps = document.getElementById("cfg-fps") as HTMLSelectElement;
@@ -29,35 +28,14 @@ const cfgBytes = document.getElementById("cfg-bytes") as HTMLSelectElement;
 const cfgEcc = document.getElementById("cfg-ecc") as HTMLSelectElement;
 const cfgSize = document.getElementById("cfg-size") as HTMLInputElement;
 
-const payloadCache = new Map<string, Uint8Array>();
 let generation = 0; // bumped on every restart; stale loops see it and die
 let customPayload: Uint8Array | null = null;
 let customFileName = "";
 
-async function loadPayload(url: string): Promise<Uint8Array | null> {
-  const hit = payloadCache.get(url);
-  if (hit) return hit;
-  const res = await fetch(url);
-  if (!res.ok) return null;
-  const bytes = new Uint8Array(await res.arrayBuffer());
-  payloadCache.set(url, bytes);
-  return bytes;
-}
-
 async function main() {
-  cfgPayload.addEventListener("change", () => {
-    if (cfgPayload.value === "custom") {
-      cfgFileLabel.style.display = "flex";
-      if (!customPayload) {
-        cfgFile.click();
-      } else {
-        void startStream();
-      }
-    } else {
-      cfgFileLabel.style.display = "none";
-      void startStream();
-    }
-  });
+  if (cfgFileLabel) {
+    cfgFileLabel.style.display = "flex";
+  }
 
   cfgFile.addEventListener("change", async () => {
     const file = cfgFile.files?.[0];
@@ -68,13 +46,13 @@ async function main() {
         customFileName = file.name;
         void startStream();
       } catch (err) {
-        specs.textContent = `✗ failed to read file: ${err instanceof Error ? err.message : String(err)}`;
+        specs.textContent = `✗ gagal membaca file: ${err instanceof Error ? err.message : String(err)}`;
       }
     }
   });
 
   for (const el of [cfgFps, cfgBytes, cfgEcc, cfgSize]) {
-    el.addEventListener("change", () => void startStream());
+    el?.addEventListener("change", () => void startStream());
   }
   await startStream();
   try {
@@ -90,24 +68,14 @@ async function startStream() {
   let payload: Uint8Array | null = null;
   let payloadLabel = "";
 
-  if (cfgPayload.value === "custom") {
-    if (!customPayload) {
-      specs.textContent = `✗ Please select a file using "choose file" input`;
-      return;
-    }
-    payload = customPayload;
-    payloadLabel = `${customFileName} (${Math.round(payload.length / 1024)} KB)`;
-  } else {
-    payload = await loadPayload(cfgPayload.value);
-    if (payload) {
-      payloadLabel = `${Math.round(payload.length / 1024)} KB payload`;
-    }
-  }
-
-  if (!payload) {
-    specs.textContent = `✗ couldn't load payload`;
+  if (!customPayload) {
+    specs.textContent = `📁 Silakan pilih file yang ingin dikirim melalui tombol "Pilih File" di bawah`;
     return;
   }
+
+  payload = customPayload;
+  payloadLabel = `${customFileName} (${Math.round(payload.length / 1024)} KB)`;
+
   if (gen !== generation) return; // superseded while fetching
   const txFps = Number(cfgFps.value);
   const frameBytes = Number(cfgBytes.value);
@@ -159,7 +127,7 @@ async function startStream() {
       modules = qr.modules.size;
       sizeCanvas();
       specs.textContent =
-        `${txFps} FPS · ${frameBytes} bytes per frame · V${version} · ECC ${ecc} · ` +
+        `${txFps} FPS · ${frameBytes} byte per frame · V${version} · ECC ${ecc} · ` +
         `${payloadLabel} · K=${encoder.k}`;
     }
     const size = qr.modules.size;
@@ -183,7 +151,6 @@ async function startStream() {
     try {
       while (queue.length < LOOKAHEAD) queue.push(makeFrame());
     } catch (err) {
-      // e.g. frame bytes over capacity for the chosen ECC level
       specs.textContent = `✗ ${err instanceof Error ? err.message : String(err)}`;
       return;
     }

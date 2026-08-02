@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="id">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Optical Transfer — fountain-coded QR file transfer</title>
-    <meta name="theme-color" content="#0d1117" />
+    <title>File Transfer — QR Fountain</title>
+    <meta name="theme-color" content="#07090e" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="manifest" href="./manifest.json" />
@@ -19,17 +19,87 @@
     </script>
   </head>
   <body>
-    <h1>DECIMEN <small>— Fountain QR File Transfer (PoC)</small></h1>
-    <p class="hint">
-      Send a file between two devices using nothing but a screen and a camera.
-      Open <a href="./send/">send</a> on the device with the file (a laptop is
-      ideal) and <a href="./receive/">receive</a> on a phone, then point the
-      phone's camera at the flickering code.
-    </p>
-    <p class="hint">
-      No network path between the devices is used — the payload travels as
-      light. Fountain coding means the receiver can drop any frames, in any
-      order, and still reconstruct the file.
-    </p>
+    <!-- Sticky Navigation Header -->
+    <header class="nav-header">
+      <a href="./" class="nav-brand">
+        <div class="brand-icon">FT</div>
+        <span class="brand-title">FILE TRANSFER</span>
+        <span class="brand-badge">PoC v1.0</span>
+      </a>
+      <nav class="nav-links">
+        <a href="./" class="nav-link active">Beranda</a>
+        <a href="./send/" class="nav-link">📡 Kirim</a>
+        <a href="./receive/" class="nav-link">📷 Terima</a>
+      </nav>
+    </header>
+
+    <main class="app-container">
+      <!-- Hero Header Section -->
+      <section class="hero-section">
+        <div class="hero-pill">
+          <span></span> Transfer Optik Fountain Tanpa Jaringan (Air-Gapped)
+        </div>
+        <h1>
+          FILE TRANSFER
+          <small>Transfer File Kode QR Fountain (PoC)</small>
+        </h1>
+        <p class="hint">
+          Kirim file antara dua perangkat hanya menggunakan layar dan kamera. 
+          Buka mode <a href="./send/">Kirim</a> pada perangkat yang menyimpan file (seperti laptop) dan mode <a href="./receive/">Terima</a> pada HP, lalu arahkan kamera HP ke kode QR yang berkedip.
+        </p>
+      </section>
+
+      <!-- Action Mode Cards -->
+      <section class="cards-grid">
+        <div class="action-card send-card">
+          <div class="card-icon">📡</div>
+          <h2 class="card-title">Kirim File (Mode Sender)</h2>
+          <p class="card-desc">
+            Buka di perangkat pengirim (laptop/PC). Pilih file atau contoh data untuk memancarkan stream kode QR animasi berkecepatan tinggi pada layar.
+          </p>
+          <a href="./send/" class="btn btn-amber">
+            Buka Mode Kirim <span>→</span>
+          </a>
+        </div>
+
+        <div class="action-card receive-card">
+          <div class="card-icon">📷</div>
+          <h2 class="card-title">Terima File (Mode Receiver)</h2>
+          <p class="card-desc">
+            Buka di perangkat penerima (smartphone/tablet). Arahkan kamera ke layar pengirim untuk menangkap frame & menyusun kembali file asli.
+          </p>
+          <a href="./receive/" class="btn btn-cyan">
+            Buka Mode Terima <span>→</span>
+          </a>
+        </div>
+      </section>
+
+      <!-- Technical Protocol Features Grid -->
+      <section class="features-grid">
+        <div class="feature-item">
+          <div class="feature-icon">🛡️</div>
+          <div class="feature-title">Keamanan Air-Gapped</div>
+          <div class="feature-desc">Tidak memerlukan Wi-Fi, Bluetooth, atau Internet. Data mengalir murni sebagai gelombang cahaya antar layar.</div>
+        </div>
+
+        <div class="feature-item">
+          <div class="feature-icon">🌊</div>
+          <div class="feature-title">Fountain Coding</div>
+          <div class="feature-desc">Penerima dapat menangkap frame secara acak dalam urutan apapun dan tetap dapat menyusun file lengkap.</div>
+        </div>
+
+        <div class="feature-item">
+          <div class="feature-icon">⚡</div>
+          <div class="feature-title">Stream Adaptif</div>
+          <div class="feature-desc">Kecepatan frame rate dapat disesuaikan (hingga 60 FPS) dan tingkat koreksi error untuk kecepatan transfer tinggi.</div>
+        </div>
+
+        <div class="feature-item">
+          <div class="feature-icon">📱</div>
+          <div class="feature-title">Lintas Perangkat</div>
+          <div class="feature-desc">Berjalan langsung di browser modern pada HP Android, iOS, Laptop, PC, dan Tablet tanpa perlu aplikasi tambahan.</div>
+        </div>
+      </section>
+    </main>
   </body>
 </html>

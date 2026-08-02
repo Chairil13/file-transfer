@@ -1,13 +1,13 @@
 <!doctype html>
-<html lang="en">
+<html lang="id">
   <head>
     <meta charset="UTF-8" />
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no"
     />
-    <title>Optical Transfer — receive</title>
-    <meta name="theme-color" content="#0d1117" />
+    <title>File Transfer — Mode Terima</title>
+    <meta name="theme-color" content="#07090e" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="manifest" href="../manifest.json" />
@@ -22,57 +22,82 @@
     </script>
   </head>
   <body>
-    <h1>DECIMEN <small>— Fountain QR File Transfer</small></h1>
-    <div class="hint" id="stats">point the camera at the sender's code</div>
-    <details class="settings" id="settings">
-      <summary>Settings</summary>
-      <div class="row">
-        <label>
-          capture width
-          <select id="cfg-width">
-            <option>960</option>
-            <option selected>1280</option>
-            <option>1920</option>
-          </select>
-        </label>
-        <label>
-          capture fps
-          <select id="cfg-capfps">
-            <option>30</option>
-            <option selected>60</option>
-          </select>
-        </label>
-        <label>
-          decode workers
-          <select id="cfg-workers">
-            <option>1</option>
-            <option selected>2</option>
-            <option>3</option>
-          </select>
-        </label>
+    <!-- Sticky Header Navigation -->
+    <header class="nav-header">
+      <a href="../" class="nav-brand">
+        <div class="brand-icon">FT</div>
+        <span class="brand-title">FILE TRANSFER</span>
+        <span class="brand-badge">Penerima</span>
+      </a>
+      <nav class="nav-links">
+        <a href="../" class="nav-link">← Beranda</a>
+        <a href="../send/" class="nav-link">📡 Kirim</a>
+        <a href="./" class="nav-link active">📷 Terima</a>
+      </nav>
+    </header>
+
+    <main class="app-container">
+      <div class="hero-section" style="padding: 0;">
+        <h1>
+          FILE TRANSFER <small>— Penerima Pemindai Optik</small>
+        </h1>
       </div>
-      <div class="hint" style="text-align: left; padding-top: 8px">
-        Set before starting the camera. 1280-wide is the widest mode iOS runs
-        at a true 60 fps; the fps request is demanded with `exact` first
-        because `ideal: 60` silently delivers 30.
+
+      <div class="hint" id="stats">arahkan kamera ke kode QR pada layar pengirim</div>
+
+      <details class="settings" id="settings">
+        <summary>⚙️ Pengaturan Kamera & Worker</summary>
+        <div class="row">
+          <label>
+            lebar tangkapan
+            <select id="cfg-width">
+              <option>960</option>
+              <option selected>1280</option>
+              <option>1920</option>
+            </select>
+          </label>
+          <label>
+            fps tangkapan
+            <select id="cfg-capfps">
+              <option>30</option>
+              <option selected>60</option>
+            </select>
+          </label>
+          <label>
+            worker dekode
+            <select id="cfg-workers">
+              <option>1</option>
+              <option selected>2</option>
+              <option>3</option>
+            </select>
+          </label>
+        </div>
+        <div class="hint" style="text-align: left; padding-top: 10px; font-size: 12px; opacity: 0.8;">
+          💡 Atur sebelum menyalakan kamera. Lebar 1280 piksel optimal untuk tangkapan 60 FPS pada iOS.
+        </div>
+      </details>
+
+      <button id="start">📷 Nyalakan Kamera</button>
+
+      <div class="metrics" id="metrics" style="display: none">
+        <div class="metric"><div class="k">fps kamera</div><div class="v" id="m-cap">—</div></div>
+        <div class="metric"><div class="k">fps dekode</div><div class="v amber" id="m-dec">—</div></div>
+        <div class="metric"><div class="k">kecepatan</div><div class="v amber" id="m-rate">—</div></div>
+        <div class="metric"><div class="k">waktu</div><div class="v" id="m-time">—</div></div>
+        <div class="metric"><div class="k">frame baru/dup</div><div class="v" id="m-frames">—</div></div>
+        <div class="metric"><div class="k">blok K</div><div class="v" id="m-k">—</div></div>
+        <div class="metric"><div class="k">panjang blok</div><div class="v" id="m-block">—</div></div>
+        <div class="metric"><div class="k">ukuran file</div><div class="v" id="m-payload">—</div></div>
       </div>
-    </details>
-    <button id="start">Start camera</button>
-    <div class="metrics" id="metrics" style="display: none">
-      <div class="metric"><div class="k">capture fps</div><div class="v" id="m-cap">—</div></div>
-      <div class="metric"><div class="k">decode fps</div><div class="v amber" id="m-dec">—</div></div>
-      <div class="metric"><div class="k">goodput</div><div class="v amber" id="m-rate">—</div></div>
-      <div class="metric"><div class="k">elapsed</div><div class="v" id="m-time">—</div></div>
-      <div class="metric"><div class="k">frames new/dup</div><div class="v" id="m-frames">—</div></div>
-      <div class="metric"><div class="k">blocks K</div><div class="v" id="m-k">—</div></div>
-      <div class="metric"><div class="k">block len</div><div class="v" id="m-block">—</div></div>
-      <div class="metric"><div class="k">payload</div><div class="v" id="m-payload">—</div></div>
-    </div>
-    <div class="preview" id="preview" style="display: none">
-      <video id="video" muted playsinline></video>
-    </div>
-    <div class="progress" id="progress" style="display: none"><div id="bar"></div></div>
-    <div id="result"></div>
+
+      <div class="preview" id="preview" style="display: none">
+        <video id="video" muted playsinline></video>
+      </div>
+
+      <div class="progress" id="progress" style="display: none"><div id="bar"></div></div>
+
+      <div id="result"></div>
+    </main>
     <script type="module" src="./main.ts"></script>
   </body>
 </html>
