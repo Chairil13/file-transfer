@@ -71,7 +71,7 @@ async function startStream() {
 
   if (gen !== generation) return; // superseded while fetching
   const txFps = cfgFps ? Number(cfgFps.value) : 30;
-  const frameBytes = cfgBytes ? Number(cfgBytes.value) : 1465;
+  const frameBytes = cfgBytes ? Number(cfgBytes.value) : 1850;
   const ecc = cfgEcc ? (cfgEcc.value as "L" | "M" | "Q" | "H") : "L";
   const displayPx = cfgSize ? Number(cfgSize.value) : 900;
 

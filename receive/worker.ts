@@ -21,9 +21,30 @@ const ctx = self as unknown as {
 };
 
 ctx.onmessage = async (e: MessageEvent) => {
-  const { id, buf, w, h } = e.data as { id: number; buf: ArrayBuffer; w: number; h: number };
+  const { id, buf, w, h, grayscale } = e.data as {
+    id: number;
+    buf: ArrayBuffer;
+    w: number;
+    h: number;
+    grayscale?: boolean;
+  };
   try {
-    const img = new ImageData(new Uint8ClampedArray(buf), w, h);
+    let img: ImageData;
+    if (grayscale) {
+      // Expand grayscale 8-bit → RGBA for ZXing (transfer was 75% smaller)
+      const gray = new Uint8Array(buf);
+      const rgba = new Uint8ClampedArray(w * h * 4);
+      for (let i = 0, j = 0; i < gray.length; i++, j += 4) {
+        const v = gray[i]!;
+        rgba[j] = v;
+        rgba[j + 1] = v;
+        rgba[j + 2] = v;
+        rgba[j + 3] = 255;
+      }
+      img = new ImageData(rgba, w, h);
+    } else {
+      img = new ImageData(new Uint8ClampedArray(buf), w, h);
+    }
     const results = await readBarcodes(img, { formats: ["QRCode"], maxNumberOfSymbols: 1 });
     const r = results.find((x) => x.isValid && x.bytes.length > 0);
     ctx.postMessage({ id, bytes: r ? r.bytes : null });
