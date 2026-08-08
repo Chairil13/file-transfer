@@ -22,6 +22,7 @@ let chunkDecoders: (LTDecoder | null)[] = [];
 let totalChunksCount = 0;
 let sessionId = -1;
 let isCompressed = false;
+let streamTotalLen = 0;
 let startTs = 0;
 let captureGen = 0;
 let done = false;
@@ -47,7 +48,7 @@ async function start() {
   const cfgK = document.getElementById("cfg-workers") as HTMLSelectElement | null;
   const captureWidth = cfgW ? Number(cfgW.value) : 1280;
   const captureFps = cfgC ? Number(cfgC.value) : 60;
-  const workerCount = cfgK ? Number(cfgK.value) : 4;
+  const workerCount = cfgK ? Number(cfgK.value) : Math.max(4, Math.min(8, navigator.hardwareConcurrency || 4));
   if (settings) settings.style.display = "none";
   startBtn.style.display = "none";
   preview.style.display = "block";
@@ -199,6 +200,7 @@ async function onDecoded(bytes: Uint8Array) {
   if (sessionId !== header.sessionId || totalChunksCount !== header.totalChunks) {
     sessionId = header.sessionId;
     totalChunksCount = header.totalChunks;
+    streamTotalLen = header.totalLen;
     isCompressed = header.compressed ?? false;
     chunkDecoders = new Array(header.totalChunks).fill(null);
     completedChunksCount = 0;
@@ -213,7 +215,7 @@ async function onDecoded(bytes: Uint8Array) {
     const chunkSessionId = (header.sessionId + cIdx * 997) & 0xffff;
     const isLastChunk = cIdx === totalChunksCount - 1;
     const thisChunkTotalLen = isLastChunk
-      ? header.totalLen - (totalChunksCount - 1) * CHUNK_SIZE
+      ? streamTotalLen - (totalChunksCount - 1) * CHUNK_SIZE
       : CHUNK_SIZE;
     chunkDecoders[cIdx] = new LTDecoder(
       header.k,
@@ -249,7 +251,7 @@ async function onDecoded(bytes: Uint8Array) {
 
   if (completedChunksCount >= totalChunksCount) {
     // All chunks resolved! Reassemble full payload
-    const assembledPayload = new Uint8Array(header.totalLen);
+    const assembledPayload = new Uint8Array(streamTotalLen);
     let offset = 0;
     for (let i = 0; i < totalChunksCount; i++) {
       const chunkBytes = chunkDecoders[i]!.assemble()!;
@@ -259,7 +261,7 @@ async function onDecoded(bytes: Uint8Array) {
     const finalPayload = await decompressPayload(assembledPayload, isCompressed);
     const seconds = (performance.now() - startTs) / 1000;
     const ok = fnv1a(finalPayload) === header.payloadFnv;
-    finish(finalPayload, ok, seconds, header.totalLen);
+    finish(finalPayload, ok, seconds, finalPayload.length);
   }
 }
 
@@ -377,9 +379,10 @@ function finish(payload: Uint8Array, hashOk: boolean, seconds: number, totalLen:
   stream?.getTracks().forEach((t) => t.stop());
   preview.style.display = "none";
   bar.style.width = "100%";
-  const kb = Math.round(totalLen / 1024);
+  const fileMb = totalLen / (1024 * 1024);
+  const sizeText = fileMb >= 1 ? `${fileMb.toFixed(2)} MB` : `${Math.round(totalLen / 1024)} KB`;
   const rate = (totalLen / 1024 / seconds).toFixed(1);
-  stats.textContent = `${kb} KB dalam ${seconds.toFixed(1)} d · ${rate} KB/s · hash ${hashOk ? "terverifikasi ✓" : "TIDAK COCOK ✗"}`;
+  stats.textContent = `${sizeText} dalam ${seconds.toFixed(1)} d · ${rate} KB/s · hash ${hashOk ? "terverifikasi ✓" : "TIDAK COCOK ✗"}`;
 
   const { ext, mime } = detectFileType(payload);
 
@@ -443,7 +446,6 @@ function updateStats() {
   let totalFramesNew = 0;
   let totalFramesDup = 0;
   let activeBlockLen = 0;
-  let totalFileLen = 0;
   let firstK = 0;
 
   for (const d of chunkDecoders) {
@@ -451,7 +453,6 @@ function updateStats() {
       totalFramesNew += d.framesNew;
       totalFramesDup += d.framesDup;
       activeBlockLen = d.blockLen;
-      totalFileLen = d.totalLen;
       if (!firstK) firstK = d.k;
     }
   }
@@ -463,7 +464,11 @@ function updateStats() {
   metric("m-frames").textContent = `${totalFramesNew}/${totalFramesDup}`;
   metric("m-k").textContent = `${firstK} (×${totalChunksCount})`;
   metric("m-block").textContent = `${activeBlockLen} B`;
-  metric("m-payload").textContent = `${Math.round(totalFileLen / 1024)} KB`;
+  const totalMb = streamTotalLen / (1024 * 1024);
+  metric("m-payload").textContent =
+    totalMb >= 1
+      ? `${totalMb.toFixed(2)} MB`
+      : `${Math.round(streamTotalLen / 1024)} KB`;
 
   stats.textContent = `kamera — Chunk ${completedChunksCount}/${totalChunksCount} Selesai (${completedChunksCount === totalChunksCount ? "100" : Math.floor((completedChunksCount / totalChunksCount) * 100)}%)`;
 }

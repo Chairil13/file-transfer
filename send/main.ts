@@ -89,8 +89,8 @@ async function startStream() {
 
   let currentChunkIdx = 0;
   let chunkFramesEmitted = 0;
-  // Interleaved chunk streaming: cycle through chunks every 15 frames for real-time parallel progress
-  const framesPerBatch = (_c: number) => 15;
+  // Pure 1-frame round-robin chunk interleaving for smooth parallel reception
+  const framesPerBatch = (_c: number) => 1;
 
   let version: number | undefined; // locked after the first frame
   let modules = 0;
@@ -116,7 +116,7 @@ async function startStream() {
       seq,
       k: enc.k,
       blockLen,
-      totalLen: customPayload!.length,
+      totalLen: encodedPayload.length,
       payloadFnv: fullFnv,
       chunkIdx: currentChunkIdx,
       totalChunks,
