@@ -162,23 +162,17 @@ function captureFrame() {
   const slot = busy.indexOf(false);
   if (slot === -1) return; // all workers busy — drop the frame
 
-  // Optimize QR decoding speed: downscale canvas to max 440px width/height and apply 88% ROI crop.
-  // This reduces pixel data sent to WASM by 70%, boosting WASM QR decoding speed from 4 FPS to 40-60 FPS!
-  const MAX_DIM = 440;
-  const cropFactor = 0.88;
-  const sw = Math.round(vw * cropFactor);
-  const sh = Math.round(vh * cropFactor);
-  const sx = Math.round((vw - sw) / 2);
-  const sy = Math.round((vh - sh) / 2);
-
-  let dw = sw;
-  let dh = sh;
+  // Downscale to max 640px for fast WASM QR decoding. Version 9 (320B) QR codes
+  // have large modules that decode reliably at this resolution.
+  const MAX_DIM = 640;
+  let dw = vw;
+  let dh = vh;
   if (dw > MAX_DIM || dh > MAX_DIM) {
     if (dw > dh) {
-      dh = Math.round((sh * MAX_DIM) / sw);
+      dh = Math.round((vh * MAX_DIM) / vw);
       dw = MAX_DIM;
     } else {
-      dw = Math.round((sw * MAX_DIM) / sh);
+      dw = Math.round((vw * MAX_DIM) / vh);
       dh = MAX_DIM;
     }
   }
@@ -188,7 +182,7 @@ function captureFrame() {
     grab.height = dh;
   }
   const ctx = grab.getContext("2d", { willReadFrequently: true })!;
-  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, dw, dh);
+  ctx.drawImage(video, 0, 0, dw, dh);
   const img = ctx.getImageData(0, 0, dw, dh);
   busy[slot] = true;
   workerStartTime[slot] = now;
