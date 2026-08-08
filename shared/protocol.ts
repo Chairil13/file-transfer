@@ -16,7 +16,8 @@
 
 export const HEADER_LEN = 24;
 const MAGIC0 = 0xd1;
-const MAGIC1 = 0x0c;
+export const MAGIC1_RAW = 0x0c;
+export const MAGIC1_GZIP = 0x0d;
 
 export interface FrameHeader {
   sessionId: number;
@@ -27,13 +28,14 @@ export interface FrameHeader {
   payloadFnv: number;
   chunkIdx: number;
   totalChunks: number;
+  compressed?: boolean;
 }
 
 export function packFrame(h: FrameHeader, block: Uint8Array): Uint8Array {
   const out = new Uint8Array(HEADER_LEN + block.length);
   const dv = new DataView(out.buffer);
   dv.setUint8(0, MAGIC0);
-  dv.setUint8(1, MAGIC1);
+  dv.setUint8(1, h.compressed ? MAGIC1_GZIP : MAGIC1_RAW);
   dv.setUint16(2, h.sessionId, true);
   dv.setUint32(4, h.seq, true);
   dv.setUint16(8, h.k, true);
@@ -50,7 +52,9 @@ export function parseFrame(
   bytes: Uint8Array,
 ): { header: FrameHeader; block: Uint8Array } | null {
   if (bytes.length <= HEADER_LEN) return null;
-  if (bytes[0] !== MAGIC0 || bytes[1] !== MAGIC1) return null;
+  const m0 = bytes[0];
+  const m1 = bytes[1];
+  if (m0 !== MAGIC0 || (m1 !== MAGIC1_RAW && m1 !== MAGIC1_GZIP)) return null;
   const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const header: FrameHeader = {
     sessionId: dv.getUint16(2, true),
@@ -61,10 +65,45 @@ export function parseFrame(
     payloadFnv: dv.getUint32(16, true),
     chunkIdx: dv.getUint16(20, true),
     totalChunks: dv.getUint16(22, true),
+    compressed: m1 === MAGIC1_GZIP,
   };
   if (header.k === 0 || header.blockLen === 0 || header.totalLen === 0 || header.totalChunks === 0) return null;
   if (bytes.length !== HEADER_LEN + header.blockLen) return null;
   return { header, block: bytes.subarray(HEADER_LEN) };
+}
+
+export async function compressPayload(raw: Uint8Array): Promise<{ bytes: Uint8Array; compressed: boolean }> {
+  try {
+    if (typeof CompressionStream !== "undefined" && raw.length > 256) {
+      const blob = new Blob([raw as BlobPart]);
+      const cs = new CompressionStream("gzip");
+      const compressedStream = blob.stream().pipeThrough(cs);
+      const buf = await new Response(compressedStream).arrayBuffer();
+      const comp = new Uint8Array(buf);
+      if (comp.length < raw.length) {
+        return { bytes: comp, compressed: true };
+      }
+    }
+  } catch {
+    /* fallback to uncompressed */
+  }
+  return { bytes: raw, compressed: false };
+}
+
+export async function decompressPayload(bytes: Uint8Array, isCompressed: boolean): Promise<Uint8Array> {
+  if (!isCompressed) return bytes;
+  try {
+    if (typeof DecompressionStream !== "undefined") {
+      const blob = new Blob([bytes as BlobPart]);
+      const ds = new DecompressionStream("gzip");
+      const decompressedStream = blob.stream().pipeThrough(ds);
+      const buf = await new Response(decompressedStream).arrayBuffer();
+      return new Uint8Array(buf);
+    }
+  } catch (err) {
+    console.error("Failed to decompress GZIP payload:", err);
+  }
+  return bytes;
 }
 
 export function fnv1a(bytes: Uint8Array): number {

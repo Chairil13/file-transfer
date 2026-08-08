@@ -3,7 +3,7 @@
 
 import QRCode from "qrcode";
 import { LTEncoder } from "../shared/fountain";
-import { HEADER_LEN, fnv1a, packFrame, type FrameHeader } from "../shared/protocol";
+import { HEADER_LEN, compressPayload, fnv1a, packFrame, type FrameHeader } from "../shared/protocol";
 
 const MARGIN = 4; // quiet-zone modules
 const LOOKAHEAD = 3;
@@ -55,7 +55,6 @@ async function main() {
 
 async function startStream() {
   const gen = ++generation;
-  let payload: Uint8Array | null = null;
   let payloadLabel = "";
 
   if (!customPayload) {
@@ -63,8 +62,12 @@ async function startStream() {
     return;
   }
 
-  payload = customPayload;
-  payloadLabel = `${customFileName} (${Math.round(payload.length / 1024)} KB)`;
+  const fullFnv = fnv1a(customPayload);
+  const { bytes: encodedPayload, compressed } = await compressPayload(customPayload);
+
+  payloadLabel = compressed
+    ? `${customFileName} (${Math.round(customPayload.length / 1024)} KB ⚡ GZIP ${Math.round(encodedPayload.length / 1024)} KB)`
+    : `${customFileName} (${Math.round(customPayload.length / 1024)} KB)`;
 
   if (gen !== generation) return; // superseded while fetching
   const txFps = Number(cfgFps.value);
@@ -74,14 +77,13 @@ async function startStream() {
 
   const sessionId = (Math.floor(Math.random() * 0xffff) + 1) & 0xffff;
   const blockLen = frameBytes - HEADER_LEN;
-  const fullFnv = fnv1a(payload);
-  const totalChunks = Math.max(1, Math.ceil(payload.length / CHUNK_SIZE));
+  const totalChunks = Math.max(1, Math.ceil(encodedPayload.length / CHUNK_SIZE));
 
   const chunkEncoders: LTEncoder[] = [];
   const chunkNextSeq: number[] = new Array(totalChunks).fill(0);
 
   for (let c = 0; c < totalChunks; c++) {
-    const chunkBytes = payload.subarray(c * CHUNK_SIZE, Math.min((c + 1) * CHUNK_SIZE, payload.length));
+    const chunkBytes = encodedPayload.subarray(c * CHUNK_SIZE, Math.min((c + 1) * CHUNK_SIZE, encodedPayload.length));
     chunkEncoders.push(new LTEncoder(chunkBytes, blockLen, (sessionId + c * 997) & 0xffff));
   }
 
@@ -116,10 +118,11 @@ async function startStream() {
       seq,
       k: enc.k,
       blockLen,
-      totalLen: payload.length,
+      totalLen: customPayload!.length,
       payloadFnv: fullFnv,
       chunkIdx: currentChunkIdx,
       totalChunks,
+      compressed,
     };
 
     const bytes = packFrame(header, enc.encode(seq));
