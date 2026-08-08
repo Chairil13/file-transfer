@@ -42,10 +42,13 @@ async function start() {
       "untuk mengakses kamera dari perangkat lain (npm run dev).";
     return;
   }
-  const captureWidth = Number((document.getElementById("cfg-width") as HTMLSelectElement).value);
-  const captureFps = Number((document.getElementById("cfg-capfps") as HTMLSelectElement).value);
-  const workerCount = Number((document.getElementById("cfg-workers") as HTMLSelectElement).value);
-  settings.style.display = "none";
+  const cfgW = document.getElementById("cfg-width") as HTMLSelectElement | null;
+  const cfgC = document.getElementById("cfg-capfps") as HTMLSelectElement | null;
+  const cfgK = document.getElementById("cfg-workers") as HTMLSelectElement | null;
+  const captureWidth = cfgW ? Number(cfgW.value) : 1280;
+  const captureFps = cfgC ? Number(cfgC.value) : 60;
+  const workerCount = cfgK ? Number(cfgK.value) : 4;
+  if (settings) settings.style.display = "none";
   startBtn.style.display = "none";
   preview.style.display = "block";
   metricsEl.style.display = "grid";

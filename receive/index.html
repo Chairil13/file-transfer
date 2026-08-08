@@ -45,40 +45,12 @@
 
       <div class="hint" id="stats">arahkan kamera ke kode QR pada layar pengirim</div>
 
-      <details class="settings" id="settings">
-        <summary>⚙️ Pengaturan Kamera & Worker</summary>
-        <div class="row">
-          <label>
-            lebar tangkapan
-            <select id="cfg-width">
-              <option>960</option>
-              <option selected>1280</option>
-              <option>1920</option>
-            </select>
-          </label>
-          <label>
-            fps tangkapan
-            <select id="cfg-capfps">
-              <option>30</option>
-              <option selected>60</option>
-            </select>
-          </label>
-          <label>
-            worker dekode
-            <select id="cfg-workers">
-              <option>2</option>
-              <option selected>4</option>
-              <option>6</option>
-              <option>8</option>
-            </select>
-          </label>
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 15px 0 20px 0;">
+        <button id="start" style="cursor: pointer; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; padding: 14px 28px; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 14px rgba(16,185,129,0.3);">📷 Nyalakan Kamera (Auto-Scan)</button>
+        <div style="margin-top: 10px; font-size: 13px; color: #94a3b8; font-weight: 500;">
+          ⚡ Mode Penerima Optimal (60 FPS HD · 4-Core Worker Parallel Decoding · Auto-Scale 640p)
         </div>
-        <div class="hint" style="text-align: left; padding-top: 10px; font-size: 12px; opacity: 0.8;">
-          💡 Atur sebelum menyalakan kamera. Lebar 1280 piksel optimal untuk tangkapan 60 FPS pada iOS.
-        </div>
-      </details>
-
-      <button id="start">📷 Nyalakan Kamera</button>
+      </div>
 
       <div class="metrics" id="metrics" style="display: none">
         <div class="metric"><div class="k">fps kamera</div><div class="v" id="m-cap">—</div></div>

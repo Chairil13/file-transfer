@@ -42,54 +42,15 @@
 
       <div class="hint" id="specs">📁 Silakan pilih file yang ingin dikirim</div>
 
-      <details class="settings" open>
-        <summary>⚙️ Upload File & Pengaturan Transmisi</summary>
-        <div class="row">
-          <label id="cfg-file-label" style="display: flex">
-            pilih / upload file
-            <input type="file" id="cfg-file" />
-          </label>
-          <label>
-            fps transmisi
-            <select id="cfg-fps">
-              <option>15</option>
-              <option>20</option>
-              <option>24</option>
-              <option selected>30</option>
-              <option>45</option>
-              <option>60</option>
-            </select>
-          </label>
-          <label>
-            byte / frame
-            <select id="cfg-bytes">
-              <option>500</option>
-              <option>800</option>
-              <option>1000</option>
-              <option>1200</option>
-              <option selected>1465</option>
-              <option>1850</option>
-              <option>2331</option>
-            </select>
-          </label>
-          <label>
-            koreksi error
-            <select id="cfg-ecc">
-              <option selected>L</option>
-              <option>M</option>
-              <option>Q</option>
-              <option>H</option>
-            </select>
-          </label>
-          <label>
-            ukuran tampilan
-            <input id="cfg-size" type="range" min="300" max="1200" step="50" value="900" />
-          </label>
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin: 15px 0;">
+        <label id="cfg-file-label" class="file-upload-btn" style="cursor: pointer; background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; padding: 14px 28px; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 14px rgba(37,99,235,0.3); display: inline-flex; align-items: center; gap: 8px;">
+          <span>📁 Pilih File yang Ingin Dikirim</span>
+          <input type="file" id="cfg-file" style="display: none" />
+        </label>
+        <div style="margin-top: 10px; font-size: 13px; color: #94a3b8; font-weight: 500;">
+          ⚡ Mode Transmisi Optimal (30 FPS · 1465 B/frame · Auto-GZIP · Systematic Fountain)
         </div>
-        <div class="hint" style="text-align: left; padding-top: 10px; font-size: 12px; opacity: 0.8;">
-          💡 Pilih file Anda untuk mulai memancarkan stream kode QR secara langsung.
-        </div>
-      </details>
+      </div>
 
       <div class="stage-wrapper">
         <div class="stage">

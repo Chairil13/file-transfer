@@ -70,10 +70,10 @@ async function startStream() {
     : `${customFileName} (${Math.round(customPayload.length / 1024)} KB)`;
 
   if (gen !== generation) return; // superseded while fetching
-  const txFps = Number(cfgFps.value);
-  const frameBytes = Number(cfgBytes.value);
-  const ecc = cfgEcc.value as "L" | "M" | "Q" | "H";
-  const displayPx = Number(cfgSize.value);
+  const txFps = cfgFps ? Number(cfgFps.value) : 30;
+  const frameBytes = cfgBytes ? Number(cfgBytes.value) : 1465;
+  const ecc = cfgEcc ? (cfgEcc.value as "L" | "M" | "Q" | "H") : "L";
+  const displayPx = cfgSize ? Number(cfgSize.value) : 900;
 
   const sessionId = (Math.floor(Math.random() * 0xffff) + 1) & 0xffff;
   const blockLen = frameBytes - HEADER_LEN;
