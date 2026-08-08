@@ -28,7 +28,7 @@ ctx.onmessage = async (e: MessageEvent) => {
       formats: ["QRCode"],
       maxNumberOfSymbols: 1,
       tryHarder: true,
-      tryRotate: false,
+      tryRotate: true,
     });
     const r = results.find((x) => x.isValid && x.bytes.length > 0);
     ctx.postMessage({ id, bytes: r ? r.bytes : null });
