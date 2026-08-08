@@ -94,7 +94,6 @@ async function startStream() {
   let version: number | undefined; // locked after the first frame
   let modules = 0;
   let scale = 1;
-  const staging = document.createElement("canvas");
   const queue: ImageData[] = [];
 
   const sizeCanvas = () => {
@@ -102,8 +101,6 @@ async function startStream() {
     const total = modules + 2 * MARGIN;
     const cssBudget = Math.min(0.9 * Math.min(window.innerWidth, window.innerHeight), displayPx);
     scale = Math.max(1, Math.floor((cssBudget * dpr) / total));
-    staging.width = total;
-    staging.height = total;
     canvas.width = total * scale;
     canvas.height = total * scale;
     canvas.style.width = `${(total * scale) / dpr}px`;
@@ -152,14 +149,23 @@ async function startStream() {
     const size = qr.modules.size;
     const data = qr.modules.data;
     const total = size + 2 * MARGIN;
-    const img = new ImageData(total, total);
+    const canvasWidth = total * scale;
+    const img = new ImageData(canvasWidth, canvasWidth);
     const px = new Uint32Array(img.data.buffer);
     px.fill(0xffffffff);
     for (let y = 0; y < size; y++) {
-      const row = (y + MARGIN) * total + MARGIN;
+      const startY = (y + MARGIN) * scale;
       const src = y * size;
       for (let x = 0; x < size; x++) {
-        if (data[src + x]) px[row + x] = 0xff000000;
+        if (data[src + x]) {
+          const startX = (x + MARGIN) * scale;
+          for (let sy = 0; sy < scale; sy++) {
+            const rowOffset = (startY + sy) * canvasWidth;
+            for (let sx = 0; sx < scale; sx++) {
+              px[rowOffset + startX + sx] = 0xff000000;
+            }
+          }
+        }
       }
     }
     return img;
@@ -188,10 +194,8 @@ async function startStream() {
       nextAt = now + interval;
       return;
     }
-    staging.getContext("2d")!.putImageData(img, 0, 0);
     const ctx = canvas.getContext("2d")!;
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(staging, 0, 0, canvas.width, canvas.height);
+    ctx.putImageData(img, 0, 0);
     nextAt += interval;
     if (now - nextAt > 3 * interval) nextAt = now + interval;
   };

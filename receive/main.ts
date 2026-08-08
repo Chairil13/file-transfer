@@ -160,7 +160,7 @@ function captureFrame() {
 
   // Optimize QR decoding speed: downscale canvas to max 720px width/height.
   // This reduces memory copy from 8.3MB (1080p) down to 1.1MB, making ZXing WASM 7x faster!
-  const MAX_DIM = 720;
+  const MAX_DIM = 640;
   let dw = vw;
   let dh = vh;
   if (dw > MAX_DIM || dh > MAX_DIM) {

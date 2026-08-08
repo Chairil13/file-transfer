@@ -76,6 +76,12 @@ function frameSeed(sessionId: number, seq: number): number {
 
 /** The block indices XORed into frame `seq` — identical on both ends. */
 function frameIndices(k: number, cdf: Float64Array, sessionId: number, seq: number): number[] {
+  // Systematic LT Fountain Code:
+  // Emits individual raw blocks for the first k frames (seq 0 to k-1)
+  // for instant O(1) block resolution with minimal overhead.
+  if (seq < k) {
+    return [seq];
+  }
   const rnd = splitmix32(frameSeed(sessionId, seq));
   // inverse-CDF sample the degree
   const u = rnd() * 2 ** -32;
