@@ -28,6 +28,7 @@ let completedChunksCount = 0;
 
 const workers: Worker[] = [];
 const busy: boolean[] = [];
+const workerStartTime: number[] = [];
 const captureTimes: number[] = [];
 const decodeTimes: number[] = [];
 
@@ -52,6 +53,7 @@ async function start() {
     width: { ideal: captureWidth },
     height: { ideal: Math.round((captureWidth * 3) / 4) },
   };
+
   try {
     try {
       stream = await navigator.mediaDevices.getUserMedia({
@@ -59,30 +61,55 @@ async function start() {
         video: { ...base, frameRate: { exact: captureFps } },
       });
     } catch {
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: { ...base, frameRate: { ideal: captureFps } },
-      });
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: { ...base, frameRate: { ideal: captureFps } },
+        });
+      } catch {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: { facingMode: "environment" },
+          });
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: true,
+          });
+        }
+      }
     }
   } catch (err) {
-    stats.textContent = `✗ kamera: ${err instanceof Error ? err.message : String(err)}`;
+    stats.textContent = `✗ gagal membuka kamera: ${err instanceof Error ? err.message : String(err)}`;
     return;
   }
+
   video.srcObject = stream;
   await video.play().catch(() => undefined);
-  stats.textContent = `kamera ${stream.getVideoTracks()[0]?.getSettings().width}×${stream.getVideoTracks()[0]?.getSettings().height}@${stream.getVideoTracks()[0]?.getSettings().frameRate} — mencari stream QR…`;
+  const track = stream.getVideoTracks()[0];
+  const settingsObj = track?.getSettings();
+  stats.textContent = `kamera ${settingsObj?.width ?? "?"}×${settingsObj?.height ?? "?"}@${settingsObj?.frameRate ?? "?"} — mencari stream QR… (pastikan pengirim sudah memilih file)`;
 
   for (let i = 0; i < workerCount; i++) {
     const w = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
     const slot = i;
     w.onmessage = (e: MessageEvent) => {
       const { id, bytes } = e.data as { id: number; bytes: Uint8Array | null };
-      if (id === -1) return; // warm-up
+      if (id === -1) {
+        // Warm-up signal from worker, do not alter busy state
+        return;
+      }
       busy[slot] = false;
       if (bytes) onDecoded(bytes);
     };
+    w.onerror = (err) => {
+      console.error(`Worker dekode ${slot} error:`, err);
+      busy[slot] = false;
+    };
     workers.push(w);
     busy.push(false);
+    workerStartTime.push(0);
   }
 
   captureGen++;
@@ -118,6 +145,15 @@ function captureFrame() {
   const vh = video.videoHeight;
   if (!vw || !vh) return;
   captureTimes.push(performance.now());
+  const now = performance.now();
+
+  // Recovery check: reset any worker that has been stuck in busy state > 1500ms
+  for (let i = 0; i < busy.length; i++) {
+    if (busy[i] && now - (workerStartTime[i] ?? 0) > 1500) {
+      busy[i] = false;
+    }
+  }
+
   const slot = busy.indexOf(false);
   if (slot === -1) return; // all workers busy — drop the frame
   if (grab.width !== vw || grab.height !== vh) {
@@ -128,6 +164,7 @@ function captureFrame() {
   ctx.drawImage(video, 0, 0);
   const img = ctx.getImageData(0, 0, vw, vh);
   busy[slot] = true;
+  workerStartTime[slot] = now;
   workers[slot]!.postMessage({ id: frameId++, buf: img.data.buffer, w: vw, h: vh }, [
     img.data.buffer,
   ]);
