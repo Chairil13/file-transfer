@@ -27,8 +27,8 @@ ctx.onmessage = async (e: MessageEvent) => {
     const results = await readBarcodes(img, {
       formats: ["QRCode"],
       maxNumberOfSymbols: 1,
-      tryHarder: true,
-      tryRotate: true,
+      tryHarder: false,
+      tryRotate: false,
     });
     const r = results.find((x) => x.isValid && x.bytes.length > 0);
     ctx.postMessage({ id, bytes: r ? r.bytes : null });

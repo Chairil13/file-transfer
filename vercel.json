@@ -1,7 +1,0 @@
-{
-  "cleanUrls": true,
-  "rewrites": [
-    { "source": "/send", "destination": "/send/index.html" },
-    { "source": "/receive", "destination": "/receive/index.html" }
-  ]
-}

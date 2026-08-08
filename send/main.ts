@@ -6,7 +6,7 @@ import { LTEncoder } from "../shared/fountain";
 import { HEADER_LEN, compressPayload, fnv1a, packFrame, type FrameHeader } from "../shared/protocol";
 
 const MARGIN = 4; // quiet-zone modules
-const LOOKAHEAD = 12;
+const LOOKAHEAD = 3;
 const CHUNK_SIZE = 64 * 1024; // 64 KB per chunk for high-speed parallel fountain streaming
 
 const canvas = document.getElementById("qr") as HTMLCanvasElement;
@@ -70,10 +70,10 @@ async function startStream() {
     : `${customFileName} (${Math.round(customPayload.length / 1024)} KB)`;
 
   if (gen !== generation) return; // superseded while fetching
-  const txFps = cfgFps ? Number(cfgFps.value) : 60;
-  const frameBytes = cfgBytes ? Number(cfgBytes.value) : 320;
+  const txFps = cfgFps ? Number(cfgFps.value) : 30;
+  const frameBytes = cfgBytes ? Number(cfgBytes.value) : 768;
   const ecc = cfgEcc ? (cfgEcc.value as "L" | "M" | "Q" | "H") : "L";
-  const displayPx = cfgSize ? Number(cfgSize.value) : 700;
+  const displayPx = cfgSize ? Number(cfgSize.value) : 900;
 
   const sessionId = (Math.floor(Math.random() * 0xffff) + 1) & 0xffff;
   const blockLen = frameBytes - HEADER_LEN;
