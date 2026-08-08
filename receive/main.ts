@@ -4,7 +4,7 @@ import { LTDecoder } from "../shared/fountain";
 import { decompressPayload, fnv1a, parseFrame } from "../shared/protocol";
 
 const OVERHEAD_EST = 1.18; // expected frames ≈ K × this (robust-soliton ε)
-const CHUNK_SIZE = 256 * 1024; // 256 KB per chunk
+const CHUNK_SIZE = 64 * 1024; // 64 KB per chunk
 
 const startBtn = document.getElementById("start") as HTMLButtonElement;
 const video = document.getElementById("video") as HTMLVideoElement;
@@ -239,7 +239,7 @@ async function onDecoded(bytes: Uint8Array) {
       if (d.isComplete) {
         totalProgress += 1;
       } else {
-        totalProgress += Math.min(0.99, d.framesNew / (d.k * OVERHEAD_EST));
+        totalProgress += Math.min(0.99, d.solvedCount / d.k);
       }
     }
   }
