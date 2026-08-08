@@ -7,7 +7,7 @@ import { HEADER_LEN, compressPayload, fnv1a, packFrame, type FrameHeader } from 
 
 const MARGIN = 4; // quiet-zone modules
 const LOOKAHEAD = 3;
-const CHUNK_SIZE = 64 * 1024; // 64 KB per chunk for high-speed parallel fountain streaming
+const CHUNK_SIZE = 256 * 1024; // 256 KB per chunk for lightning-fast JS fountain decoding
 
 const canvas = document.getElementById("qr") as HTMLCanvasElement;
 const specs = document.getElementById("specs")!;
@@ -71,7 +71,7 @@ async function startStream() {
 
   if (gen !== generation) return; // superseded while fetching
   const txFps = cfgFps ? Number(cfgFps.value) : 30;
-  const frameBytes = cfgBytes ? Number(cfgBytes.value) : 768;
+  const frameBytes = cfgBytes ? Number(cfgBytes.value) : 1465;
   const ecc = cfgEcc ? (cfgEcc.value as "L" | "M" | "Q" | "H") : "L";
   const displayPx = cfgSize ? Number(cfgSize.value) : 900;
 
@@ -89,8 +89,7 @@ async function startStream() {
 
   let currentChunkIdx = 0;
   let chunkFramesEmitted = 0;
-  // Pure 1-frame round-robin chunk interleaving for smooth parallel reception
-  const framesPerBatch = (_c: number) => 1;
+  const framesPerBatch = (c: number) => Math.max(30, Math.ceil(chunkEncoders[c]!.k * 1.25));
 
   let version: number | undefined; // locked after the first frame
   let modules = 0;
@@ -116,7 +115,7 @@ async function startStream() {
       seq,
       k: enc.k,
       blockLen,
-      totalLen: encodedPayload.length,
+      totalLen: customPayload!.length,
       payloadFnv: fullFnv,
       chunkIdx: currentChunkIdx,
       totalChunks,
